@@ -19,12 +19,12 @@ app.post("/symptom-triage", async (req, res) => {
     const response = await axios.post(
       "https://openrouter.ai/api/v1/chat/completions",
       {
-        model: "deepseek/deepseek-chat",   // <---- FREE DEEPSEEK MODEL
+        model: "deepseek/deepseek-chat",
         messages: [
           {
             role: "system",
             content:
-              "You are a medical triage assistant. Return JSON ONLY: {speciality:'', advice:'', emergency:true/false}"
+              "You are a medical triage assistant. ALWAYS return valid JSON only. Format: {\"speciality\":\"Neurology\", \"advice\":\"...\", \"emergency\":false}. No markdown, no backticks, no extra text."
           },
           {
             role: "user",
@@ -42,9 +42,31 @@ app.post("/symptom-triage", async (req, res) => {
       }
     );
 
-    res.json({
+    const raw = response.data.choices[0].message.content;
+
+    // If DeepSeek accidentally adds markdown, strip it
+    const clean = raw
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
+
+    let jsonResponse;
+
+    try {
+      jsonResponse = JSON.parse(clean);
+    } catch (e) {
+      console.log("⚠️ Could not parse JSON, returning raw");
+      return res.json({
+        success: true,
+        speciality: null,
+        advice: raw,
+        emergency: false
+      });
+    }
+
+    return res.json({
       success: true,
-      reply: response.data.choices[0].message.content
+      ...jsonResponse
     });
 
   } catch (err) {
