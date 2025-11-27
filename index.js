@@ -9,12 +9,12 @@ app.use(express.json());
 const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
 
 app.get("/", (req, res) => {
-  res.send("OpenRouter DeepSeek AI Server is running.");
+  res.send("OpenRouter DeepSeek Turkish Triage AI Server is running.");
 });
 
 app.post("/symptom-triage", async (req, res) => {
   try {
-    const text = req.body.text || "";
+    const symptom = req.body.symptom || req.body.text || "";
 
     const response = await axios.post(
       "https://openrouter.ai/api/v1/chat/completions",
@@ -23,19 +23,49 @@ app.post("/symptom-triage", async (req, res) => {
         messages: [
           {
             role: "system",
-            content:
-              "You are a medical triage assistant. ALWAYS return valid JSON only. Format: {\"speciality\":\"Neurology\", \"advice\":\"...\", \"emergency\":false}. No markdown, no backticks, no extra text."
+            content: `
+Sen bir Tıbbi Triage Asistanısın. 
+HER ZAMAN SADECE TÜRKÇE konuşacaksın. 
+HER ZAMAN geçerli bir JSON döndüreceksin. 
+
+Sadece şu formatta yanıt ver:
+
+{
+  "speciality": "Kardiyoloji",
+  "advice": "Kalp ile ilgili şikayetleriniz için bir kardiyoloğa başvurun.",
+  "emergency": false
+}
+
+AÇIKLAMA, MARKDOWN, BACKTICK, METİN, EKSTRA KELİME YOK. 
+Sadece saf JSON.
+
+Uzmanlık alanları TÜRKÇE olmalıdır:
+- "Nöroloji"
+- "Dahiliye"
+- "Kardiyoloji"
+- "Dermatoloji"
+- "Ortopedi"
+- "Kadın Doğum"
+- "Göz"
+- "KBB"
+- "Pediatri"
+- "Psikiyatri"
+- "Endokrinoloji"
+- "Onkoloji"
+
+"emergency": true sadece hayatı tehdit eden bir durum varsa kullanılmalıdır.
+`
           },
           {
             role: "user",
-            content: text
+            content: `Hastanın şikayeti: ${symptom}`
           }
         ]
       },
       {
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${OPENROUTER_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_KEY}`,
           "HTTP-Referer": "https://your-app-url.com",
           "X-Title": "Hospital AI Assistant"
         }
@@ -44,7 +74,7 @@ app.post("/symptom-triage", async (req, res) => {
 
     const raw = response.data.choices[0].message.content;
 
-    // If DeepSeek accidentally adds markdown, strip it
+    // Markdown temizliği
     const clean = raw
       .replace(/```json/g, "")
       .replace(/```/g, "")
@@ -55,11 +85,12 @@ app.post("/symptom-triage", async (req, res) => {
     try {
       jsonResponse = JSON.parse(clean);
     } catch (e) {
-      console.log("⚠️ Could not parse JSON, returning raw");
+      console.log("⚠️ JSON parse edilemedi:", clean);
+
       return res.json({
         success: true,
         speciality: null,
-        advice: raw,
+        advice: clean,
         emergency: false
       });
     }
@@ -81,5 +112,5 @@ app.post("/symptom-triage", async (req, res) => {
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () =>
-  console.log(`🚀 OpenRouter DeepSeek AI Server running on port ${PORT}`)
+  console.log(`🚀 Turkish Triage AI Server running on port ${PORT}`)
 );
