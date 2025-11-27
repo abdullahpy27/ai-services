@@ -6,15 +6,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Get API key from Railway Variables
-const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
-
-if (!DEEPSEEK_KEY) {
-  console.error("❌ ERROR: DEEPSEEK_API_KEY is missing.");
-}
+const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
 
 app.get("/", (req, res) => {
-  res.send("DeepSeek AI Triage Server is running.");
+  res.send("OpenRouter DeepSeek AI Server is running.");
 });
 
 app.post("/symptom-triage", async (req, res) => {
@@ -22,14 +17,14 @@ app.post("/symptom-triage", async (req, res) => {
     const text = req.body.text || "";
 
     const response = await axios.post(
-      "https://api.deepseek.com/v1/chat/completions",
+      "https://openrouter.ai/api/v1/chat/completions",
       {
-        model: "deepseek-chat",
+        model: "deepseek/deepseek-chat",   // <---- FREE DEEPSEEK MODEL
         messages: [
           {
             role: "system",
             content:
-              "You are a medical triage assistant. Based on symptoms, return JSON ONLY: {speciality:'', advice:'', emergency:true/false}"
+              "You are a medical triage assistant. Return JSON ONLY: {speciality:'', advice:'', emergency:true/false}"
           },
           {
             role: "user",
@@ -40,19 +35,20 @@ app.post("/symptom-triage", async (req, res) => {
       {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${DEEPSEEK_KEY}`
+          "Authorization": `Bearer ${OPENROUTER_KEY}`,
+          "HTTP-Referer": "https://your-app-url.com",
+          "X-Title": "Hospital AI Assistant"
         }
       }
     );
 
-    const aiReply = response.data.choices[0].message.content;
-
     res.json({
       success: true,
-      reply: aiReply
+      reply: response.data.choices[0].message.content
     });
+
   } catch (err) {
-    console.error("🔥 DEEPSEEK ERROR:", err.response?.data || err.message);
+    console.error("🔥 OPENROUTER ERROR:", err.response?.data || err.message);
 
     res.status(500).json({
       success: false,
@@ -63,5 +59,5 @@ app.post("/symptom-triage", async (req, res) => {
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () =>
-  console.log(`🚀 DeepSeek AI Triage Server running on port ${PORT}`)
+  console.log(`🚀 OpenRouter DeepSeek AI Server running on port ${PORT}`)
 );
