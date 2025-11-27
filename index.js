@@ -1,11 +1,10 @@
 import express from "express";
 import cors from "cors";
-import bodyParser from "body-parser";
 import OpenAI from "openai";
 
 const app = express();
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -23,10 +22,13 @@ Kurallar:
 - KESİNLİKLE teşhis koyma.
 - İlaç ismi verme.
 - Acil durum varsa "emergency": true de.
-- Sadece JSON formatında cevap ver.
+- SADECE JSON formatında cevap ver.
 
 Branşlar:
-["Cardiology","Dermatology","ENT","Family Medicine","General Surgery","Neurology","Obstetrics & Gynecology","Orthopedics","Pediatrics","Radiology","Psychiatry","Internal Medicine","Urology","Gastroenterology"]
+["Cardiology","Dermatology","ENT","Family Medicine","General Surgery",
+"Neurology","Obstetrics & Gynecology","Orthopedics",
+"Pediatrics","Radiology","Psychiatry","Internal Medicine",
+"Urology","Gastroenterology"]
 
 Format:
 {
@@ -36,19 +38,28 @@ Format:
 }
 
 Kullanıcı metni: "${userText}"
-`;
+    `;
 
-    const completion = await client.chat.completions.create({
+    // 🔥 NEW RESPONSES API
+    const result = await client.responses.create({
       model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.2,
+      input: prompt,
     });
 
-    let data;
+    let output = result.output_text;
+
+    // Try extracting JSON from the output
+    const start = output.indexOf("{");
+    const end = output.lastIndexOf("}");
+    if (start !== -1 && end !== -1) {
+      output = output.substring(start, end + 1);
+    }
+
+    let json;
     try {
-      data = JSON.parse(completion.choices[0].message.content);
-    } catch (e) {
-      data = {
+      json = JSON.parse(output);
+    } catch (err) {
+      json = {
         speciality: null,
         advice:
           "Belirtilerinizi tam anlayamadım, lütfen danışma ile iletişime geçin.",
@@ -56,14 +67,19 @@ Kullanıcı metni: "${userText}"
       };
     }
 
-    res.json(data);
+    res.json(json);
   } catch (e) {
+    console.error("SERVER ERROR:", e);
     res.status(500).json({
       speciality: null,
       advice: "Sistem hatası. Lütfen danışmaya başvurunuz.",
       emergency: false,
     });
   }
+});
+
+app.get("/", (req, res) => {
+  res.send("AI service running!");
 });
 
 const PORT = process.env.PORT || 3000;
