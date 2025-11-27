@@ -1,86 +1,61 @@
 import express from "express";
 import cors from "cors";
-import OpenAI from "openai";
+import bodyParser from "body-parser";
+import { DeepSeek } from "@deepseek-ai/sdk";
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(bodyParser.json());
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Load DeepSeek API Key from Railway Variables
+const deepseek = new DeepSeek({ apiKey: process.env.DEEPSEEK_API_KEY });
 
 app.post("/symptom-triage", async (req, res) => {
   try {
-    const userText = req.body.text ?? "";
+    const userText = req.body.text;
 
-    const prompt = `
-Sen bir HASTANE DANIŞMA ASİSTANI olarak çalışıyorsun.
-Görevin: Hastanın şikayetini dinleyip HANGİ BÖLÜME gitmesi gerektiğini söylemek.
+    if (!userText) {
+      return res.status(400).json({
+        error: "Missing 'text' field in request body",
+      });
+    }
 
-Kurallar:
-- KESİNLİKLE teşhis koyma.
-- İlaç ismi verme.
-- Acil durum varsa "emergency": true de.
-- SADECE JSON formatında cevap ver.
-
-Branşlar:
-["Cardiology","Dermatology","ENT","Family Medicine","General Surgery",
-"Neurology","Obstetrics & Gynecology","Orthopedics",
-"Pediatrics","Radiology","Psychiatry","Internal Medicine",
-"Urology","Gastroenterology"]
-
-Format:
-{
-  "speciality": "...",
-  "advice": "...",
-  "emergency": true/false
-}
-
-Kullanıcı metni: "${userText}"
-    `;
-
-    // 🔥 NEW RESPONSES API
-    const result = await client.responses.create({
-      model: "gpt-4o-mini",
-      input: prompt,
+    const response = await deepseek.chat.completions.create({
+      model: "deepseek-chat",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a medical triage assistant. Extract the medical speciality (e.g., Cardiology, Dermatology, ENT, Neurology, Pediatrics, etc) and indicate if it is an emergency. Reply ONLY in JSON: { speciality: '', advice: '', emergency: true/false }",
+        },
+        { role: "user", content: userText },
+      ],
     });
 
-    let output = result.output_text;
+    const aiText = response.choices[0].message.content;
 
-    // Try extracting JSON from the output
-    const start = output.indexOf("{");
-    const end = output.lastIndexOf("}");
-    if (start !== -1 && end !== -1) {
-      output = output.substring(start, end + 1);
-    }
-
-    let json;
+    let parsed;
     try {
-      json = JSON.parse(output);
-    } catch (err) {
-      json = {
+      parsed = JSON.parse(aiText);
+    } catch (e) {
+      return res.status(500).json({
         speciality: null,
-        advice:
-          "Belirtilerinizi tam anlayamadım, lütfen danışma ile iletişime geçin.",
+        advice: "Model JSON parse error.",
         emergency: false,
-      };
+      });
     }
 
-    res.json(json);
-  } catch (e) {
-    console.error("SERVER ERROR:", e);
+    res.json(parsed);
+  } catch (error) {
+    console.error("SERVER ERROR:", error);
+
     res.status(500).json({
       speciality: null,
-      advice: "Sistem hatası. Lütfen danışmaya başvurunuz.",
+      advice: "Sistem hatası. Lütfen daha sonra tekrar deneyin.",
       emergency: false,
     });
   }
 });
 
-app.get("/", (req, res) => {
-  res.send("AI service running!");
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("AI server running on port " + PORT));
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => console.log("DeepSeek AI service running on port", PORT));
