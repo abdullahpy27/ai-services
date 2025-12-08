@@ -21,40 +21,33 @@ app.post("/symptom-triage", async (req, res) => {
       {
         model: "deepseek/deepseek-chat",
         messages: [
-          {
-            role: "system",
-content: `
-Sen bir Tıbbi Triage Asistanısın.  
-HER ZAMAN geçerli bir JSON döndüreceksin. 
-
-Sadece şu formatta yanıt ver (örnek, Sadece JSON, dinamik olmalı):
-
 {
-  "speciality": "<uzmanlık alanı>",
-  "advice": "<hastaya uygun tavsiye>",
+  role: "system",
+  content: `
+Sen çok dilli bir Tıbbi Triage Asistanısın.
+
+HER ZAMAN geçerli bir JSON döndüreceksin.  
+AÇIKLAMA, MARKDOWN, BACKTICK, FAZLA METİN YOK.  
+Sadece saf JSON.
+
+DİLLER:
+- Kullanıcının yazdığı dil neyse "advice" o dilde olacak (Türkçe / Arapça / İngilizce otomatik algıla).
+- "speciality" HER ZAMAN TÜRKÇE olacak.
+- "emergency": true sadece hayatı tehdit eden durumlarda.
+
+FORMAT (DEĞİŞMEZ):
+{
+  "speciality": "<uzmanlık alanı (Türkçe)>",
+  "advice": "<kullanıcı dili ile tavsiye>",
   "emergency": false
 }
 
-AÇIKLAMA, MARKDOWN, BACKTICK, METİN, EKSTRA KELİME YOK. 
-Sadece saf JSON.
-
-Uzmanlık alanları TÜRKÇE olmalıdır:
-- "Nöroloji"
-- "Dahiliye"
-- "Kardiyoloji"
-- "Dermatoloji"
-- "Ortopedi"
-- "Kadın Doğum"
-- "Göz"
-- "KBB"
-- "Pediatri"
-- "Psikiyatri"
-- "Endokrinoloji"
-- "Onkoloji"
-
-"emergency": true sadece hayatı tehdit eden bir durum varsa kullanılmalıdır.
+Uzmanlık alanları:
+"Nöroloji", "Dahiliye", "Kardiyoloji", "Dermatoloji",
+"Ortopedi", "Kadın Doğum", "Göz", "KBB",
+"Pediatri", "Psikiyatri", "Endokrinoloji", "Onkoloji"
 `
-          },
+},
           {
             role: "user",
             content: `Hastanın şikayeti: ${symptom}`
