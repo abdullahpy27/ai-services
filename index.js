@@ -24,8 +24,7 @@ app.post("/symptom-triage", async (req, res) => {
           {
             role: "system",
 content: `
-Sen bir Tıbbi Triage Asistanısın. 
-HER ZAMAN SADECE TÜRKÇE konuşacaksın. 
+Sen bir Tıbbi Triage Asistanısın.  
 HER ZAMAN geçerli bir JSON döndüreceksin. 
 
 Sadece şu formatta yanıt ver (örnek, Sadece JSON, dinamik olmalı):
